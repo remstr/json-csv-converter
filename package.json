@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
-    "@types/diff": "^5.2.1"
+    "@types/diff": "^5.2.1",
     "babel-plugin-react-compiler": "1.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
