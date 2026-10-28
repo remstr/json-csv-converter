@@ -1,12 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import PptxGenJS from 'pptxgenjs';
-import * as pdfjsLib from 'pdfjs-dist';
-
-// Configure worker for PDF.js
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function PdfConverterPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -14,6 +10,24 @@ export default function PdfConverterPage() {
   const [outputType, setOutputType] = useState<'docx' | 'pptx'>('docx');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pdfLibLoaded, setPdfLibLoaded] = useState(false);
+
+  // Load PDF.js dynamically in the browser
+  useEffect(() => {
+    if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.async = true;
+      script.onload = () => {
+        const pdfjsLib = (window as any).pdfjsLib;
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        setPdfLibLoaded(true);
+      };
+      document.body.appendChild(script);
+    } else if ((window as any).pdfjsLib) {
+      setPdfLibLoaded(true);
+    }
+  }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -28,25 +42,30 @@ export default function PdfConverterPage() {
 
   const handleConvert = async () => {
     if (!selectedFile) return;
+    if (!pdfLibLoaded) {
+      setError('PDF processor is still loading. Please wait a second and try again.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setStatusMessage('Reading PDF text content...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
+      const pdfjsLib = (window as any).pdfjsLib;
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdfDoc = await loadingTask.promise;
       
       let extractedTextLines: string[] = [];
 
-      // Loop through all pages and extract text strings
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         const page = await pdfDoc.getPage(i);
         const textContent = await page.getTextContent();
         
         const pageText = textContent.items
           .map((item: any) => item.str)
-          .filter((str) => str.trim().length > 0);
+          .filter((str: string) => str.trim().length > 0);
           
         extractedTextLines.push(...pageText);
       }
@@ -98,15 +117,13 @@ export default function PdfConverterPage() {
         setStatusMessage('Generating PowerPoint presentation (.pptx)...');
         
         const pres = new PptxGenJS();
-        
-        // Create chunks of text per slide
         const chunkSize = 10;
+        
         for (let i = 0; i < extractedTextLines.length; i += chunkSize) {
           const chunk = extractedTextLines.slice(i, i + chunkSize);
           let slide = pres.addSlide();
           
           slide.addText(`Slide from: ${selectedFile.name}`, { x: 0.8, y: 0.5, fontSize: 18, bold: true, color: '1e293b' });
-          
           slide.addText(chunk.join('\n'), {
             x: 0.8,
             y: 1.2,
@@ -203,10 +220,10 @@ export default function PdfConverterPage() {
           {selectedFile && (
             <button
               onClick={handleConvert}
-              disabled={loading}
+              disabled={loading || !pdfLibLoaded}
               className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
             >
-              {loading ? 'Extracting & Converting...' : `Convert to ${outputType.toUpperCase()}`}
+              {loading ? 'Extracting & Converting...' : !pdfLibLoaded ? 'Loading Processor...' : `Convert to ${outputType.toUpperCase()}`}
             </button>
           )}
         </div>
