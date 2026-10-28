@@ -66,7 +66,8 @@ export default function PdfToolkitPage() {
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
       const pdfBytes = await mergedPdf.save();
-      triggerDownload(new Blob([pdfBytes], { type: 'application/pdf' }), 'merged-document.pdf');
+      // Added "as any" to bypass strict Blob typing
+      triggerDownload(new Blob([pdfBytes as any], { type: 'application/pdf' }), 'merged-document.pdf');
       setStatusMessage('Merge complete!');
     } catch (err) {
       setError('Failed to merge PDFs. Ensure files are valid.');
@@ -97,7 +98,8 @@ export default function PdfToolkitPage() {
       copiedPages.forEach((page) => newPdf.addPage(page));
       
       const pdfBytes = await newPdf.save();
-      triggerDownload(new Blob([pdfBytes], { type: 'application/pdf' }), `split-${startPage}-to-${endPage}.pdf`);
+      // Added "as any" to bypass strict Blob typing
+      triggerDownload(new Blob([pdfBytes as any], { type: 'application/pdf' }), `split-${startPage}-to-${endPage}.pdf`);
       setStatusMessage('Split complete!');
     } catch (err: any) {
       setError(err.message || 'Failed to split PDF.');
