@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "jszip": "^3.10.1",
+    "diff": "^5.2.0",
     "qrcode.react": "^4.0.1",
     "pdf-lib": "^1.17.1",
     "docx": "^9.0.0",
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",
+    "@types/diff": "^5.2.1"
     "babel-plugin-react-compiler": "1.0.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.0.0",
