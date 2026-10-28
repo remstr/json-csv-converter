@@ -22,12 +22,19 @@ export default function Home() {
       href: '/pdf-converter',
       icon: '📄',
       accent: 'group-hover:border-emerald-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]'
+    },
+    {
+      title: 'QR Generator',
+      description: 'Create customizable, secure QR codes for URLs, Wi-Fi, and text offline.',
+      href: '/qr-generator',
+      icon: '📱',
+      accent: 'group-hover:border-violet-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.2)]'
     }
   ];
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center selection:bg-blue-500/30">
-      <div className="w-full max-w-6xl mx-auto px-6 py-24 flex flex-col items-center">
+      <div className="w-full max-w-7xl mx-auto px-6 py-24 flex flex-col items-center">
         
         {/* Hero Section */}
         <div className="text-center mb-20">
@@ -40,8 +47,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Tools Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+        {/* Tools Grid - Optimized for 4 items */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
           {tools.map((tool) => (
             <Link 
               key={tool.href} 
