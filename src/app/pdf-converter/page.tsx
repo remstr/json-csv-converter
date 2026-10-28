@@ -58,11 +58,10 @@ export default function PdfConverterPage() {
       
       let pageImageDatas: { dataUrl: string; width: number; height: number }[] = [];
 
-      // Render each page into a high-fidelity image canvas to preserve colors, tables, and alignment
       for (let i = 1; i <= pdfDoc.numPages; i++) {
         setStatusMessage(`Rendering page ${i} of ${pdfDoc.numPages} (preserving colors & tables)...`);
         const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for sharp high-res quality
+        const viewport = page.getViewport({ scale: 2.0 });
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -84,7 +83,6 @@ export default function PdfConverterPage() {
         let docParagraphs: any[] = [];
 
         for (const pageImg of pageImageDatas) {
-          // Convert base64 dataURL to Uint8Array for docx library
           const base64Data = pageImg.dataUrl.split(',')[1];
           const binaryStr = atob(base64Data);
           const len = binaryStr.length;
@@ -93,7 +91,6 @@ export default function PdfConverterPage() {
             bytes[j] = binaryStr.charCodeAt(j);
           }
 
-          // Scale dimensions to fit cleanly within standard page width (~550pt)
           const displayWidth = 550;
           const displayHeight = (pageImg.height / pageImg.width) * displayWidth;
 
@@ -101,12 +98,12 @@ export default function PdfConverterPage() {
             new Paragraph({
               children: [
                 new ImageRun({
-                  data: bytes,
+                  buffer: bytes,
                   transformation: {
                     width: displayWidth,
                     height: displayHeight,
                   },
-                }),
+                } as any),
               ],
               spacing: { after: 300 },
             })
@@ -131,7 +128,6 @@ export default function PdfConverterPage() {
           let slide = pres.addSlide();
           slide.background = { color: "FFFFFF" };
           
-          // Add the exact visual page snapshot covering the slide
           slide.addImage({
             data: pageImg.dataUrl,
             x: 0,
