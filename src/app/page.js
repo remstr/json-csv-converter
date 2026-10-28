@@ -29,6 +29,20 @@ export default function Home() {
       href: '/qr-generator',
       icon: '📱',
       accent: 'group-hover:border-violet-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(139,92,246,0.2)]'
+    },
+    {
+      title: 'Text Diff Checker',
+      description: 'Compare two contracts or documents word-by-word securely in your browser.',
+      href: '/diff-checker',
+      icon: '📝',
+      accent: 'group-hover:border-rose-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(244,63,94,0.2)]'
+    },
+    {
+      title: 'Signature Studio',
+      description: 'Generate clean, transparent PNG signatures by typing or drawing.',
+      href: '/signature-generator',
+      icon: '✍️',
+      accent: 'group-hover:border-teal-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(20,184,166,0.2)]'
     }
   ];
 
@@ -47,8 +61,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Tools Grid - Optimized for 4 items */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 w-full">
+        {/* Tools Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
           {tools.map((tool) => (
             <Link 
               key={tool.href} 
@@ -57,7 +71,6 @@ export default function Home() {
               rel="noopener noreferrer"
               className={`group relative bg-slate-900 border border-slate-800 rounded-3xl p-8 transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col ${tool.accent}`}
             >
-              {/* Subtle background glow effect */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300 rounded-bl-full pointer-events-none -mr-8 -mt-8"></div>
               
               <div className="text-5xl mb-6 bg-slate-950/50 w-20 h-20 rounded-2xl border border-slate-800 flex items-center justify-center shadow-inner">
