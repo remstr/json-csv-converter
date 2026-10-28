@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Document, Packer, Paragraph, ImageRun } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import PptxGenJS from 'pptxgenjs';
 
 export default function PdfConverterPage() {
@@ -48,7 +48,7 @@ export default function PdfConverterPage() {
 
     setLoading(true);
     setError(null);
-    setStatusMessage('Rendering PDF pages with exact layout & visuals...');
+    setStatusMessage('Analyzing PDF layout and coordinates...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
@@ -56,97 +56,128 @@ export default function PdfConverterPage() {
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdfDoc = await loadingTask.promise;
       
-      let pageImageDatas: { dataUrl: string; width: number; height: number }[] = [];
+      let allPagesStructuredRows: { text: string; x: number; y: number }[][] = [];
 
       for (let i = 1; i <= pdfDoc.numPages; i++) {
-        setStatusMessage(`Rendering page ${i} of ${pdfDoc.numPages} (preserving colors & tables)...`);
         const page = await pdfDoc.getPage(i);
-        const viewport = page.getViewport({ scale: 2.0 });
+        const textContent = await page.getTextContent();
         
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('2d');
-        canvas.height = viewport.height;
-        canvas.width = viewport.width;
+        // Extract items with exact X and Y coordinates
+        let items = textContent.items.map((item: any) => ({
+          text: item.str,
+          x: Math.round(item.transform[4]),
+          y: Math.round(item.transform[5]),
+        })).filter(item => item.text.trim().length > 0);
 
-        await page.render({
-          canvasContext: context,
-          viewport: viewport,
-        }).promise;
+        // Sort items vertically (top to bottom, descending Y in PDF coordinate space) then left to right
+        items.sort((a, b) => {
+          if (Math.abs(a.y - b.y) > 5) {
+            return b.y - a.y; // Higher Y coordinate comes first in standard PDF rendering
+          }
+          return a.x - b.x; // Left to right
+        });
 
-        const dataUrl = canvas.toDataURL('image/png');
-        pageImageDatas.push({ dataUrl, width: viewport.width, height: viewport.height });
+        // Group into lines based on Y coordinate proximity (within 6 pixels)
+        let lines: { text: string; x: number; y: number }[][] = [];
+        let currentLine: { text: string; x: number; y: number }[] = [];
+        let lastY = -1;
+
+        items.forEach(item => {
+          if (lastY === -1 || Math.abs(item.y - lastY) <= 6) {
+            currentLine.push(item);
+          } else {
+            if (currentLine.length > 0) lines.push(currentLine);
+            currentLine = [item];
+          }
+          lastY = item.y;
+        });
+        if (currentLine.length > 0) lines.push(currentLine);
+
+        allPagesStructuredRows.push(lines.map(line => ({
+          text: line.map(i => i.text).join('   '), // preserve spacing between columns
+          x: line[0].x,
+          y: line[0].y
+        })));
       }
 
       if (outputType === 'docx') {
-        setStatusMessage('Embedding visual pages into Word document (.docx)...');
+        setStatusMessage('Building structured Word document (.docx)...');
         
-        let docParagraphs: any[] = [];
+        let docChildren: any[] = [
+          new Paragraph({
+            text: `Converted Document: ${selectedFile.name}`,
+            heading: HeadingLevel.TITLE,
+          }),
+          new Paragraph({ text: "" }),
+        ];
 
-        for (const pageImg of pageImageDatas) {
-          const base64Data = pageImg.dataUrl.split(',')[1];
-          const binaryStr = atob(base64Data);
-          const len = binaryStr.length;
-          const bytes = new Uint8Array(len);
-          for (let j = 0; j < len; j++) {
-            bytes[j] = binaryStr.charCodeAt(j);
-          }
-
-          const displayWidth = 550;
-          const displayHeight = (pageImg.height / pageImg.width) * displayWidth;
-
-          docParagraphs.push(
+        allPagesStructuredRows.forEach((pageRows, pageIdx) => {
+          docChildren.push(
             new Paragraph({
-              children: [
-                new ImageRun({
-                  buffer: bytes,
-                  transformation: {
-                    width: displayWidth,
-                    height: displayHeight,
-                  },
-                } as any),
-              ],
-              spacing: { after: 300 },
+              text: `Page ${pageIdx + 1}`,
+              heading: HeadingLevel.HEADING_2,
             })
           );
-        }
+
+          pageRows.forEach(row => {
+            docChildren.push(
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: row.text,
+                    size: 22,
+                  }),
+                ],
+                spacing: { after: 100 },
+              })
+            );
+          });
+        });
 
         const doc = new Document({
-          sections: [{ properties: {}, children: docParagraphs }],
+          sections: [{ properties: {}, children: docChildren }],
         });
 
         const blob = await Packer.toBlob(doc);
         const url = URL.createObjectURL(blob);
-        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-exact.docx`);
+        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-editable.docx`);
 
       } else {
-        setStatusMessage('Building exact-match PowerPoint presentation (.pptx)...');
+        setStatusMessage('Building structured PowerPoint presentation (.pptx)...');
         
         const pres = new PptxGenJS();
-        pres.defineLayout({ name: 'CUSTOM', width: 10, height: 7.5 });
-
-        for (const pageImg of pageImageDatas) {
+        
+        allPagesStructuredRows.forEach((pageRows, pageIdx) => {
           let slide = pres.addSlide();
-          slide.background = { color: "FFFFFF" };
           
-          slide.addImage({
-            data: pageImg.dataUrl,
-            x: 0,
-            y: 0,
-            w: '100%',
-            h: '100%',
+          slide.addText(`${selectedFile.name} - Page ${pageIdx + 1}`, { 
+            x: 0.8, y: 0.4, fontSize: 16, bold: true, color: '2563eb' 
           });
-        }
+
+          // Combine rows into clean text blocks that fit nicely on the slide
+          const pageTextString = pageRows.map(r => r.text).join('\n');
+          
+          slide.addText(pageTextString || "Empty page", {
+            x: 0.8,
+            y: 1.1,
+            w: '85%',
+            h: '80%',
+            fontSize: 11,
+            color: '334155',
+            valign: 'top',
+          });
+        });
 
         const blob = (await pres.write({ outputType: 'blob' })) as Blob;
         const url = URL.createObjectURL(blob);
-        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-exact.pptx`);
+        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-editable.pptx`);
       }
 
-      setStatusMessage('Conversion complete! Your exact-match file has downloaded.');
+      setStatusMessage('Conversion complete! Your editable file has downloaded.');
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Failed to render PDF layout. Please try another file.');
+      setError('Failed to extract structured text. Please try another file.');
       setLoading(false);
     }
   };
@@ -167,7 +198,7 @@ export default function PdfConverterPage() {
           PDF to Word & PowerPoint Converter
         </h1>
         <p className="text-slate-400 text-center max-w-xl mb-8">
-          Convert PDF files into exact visual DOCX or PPTX formats with 100% color, table, and layout fidelity. 100% private & client-side.
+          Extract editable text, alignments, and structured rows directly from PDFs into DOCX or PPTX. 100% client-side.
         </p>
 
         <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center">
@@ -196,7 +227,7 @@ export default function PdfConverterPage() {
             <p className="text-sm font-medium text-slate-300">
               {selectedFile ? selectedFile.name : "Drag & drop a PDF file here, or browse"}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Preserves 100% layout, colors, tables, and pictures</p>
+            <p className="text-xs text-slate-500 mt-1">Extracts clean, fully editable text and rows</p>
           </div>
 
           {selectedFile && (
@@ -213,8 +244,8 @@ export default function PdfConverterPage() {
                   onChange={(e) => setOutputType(e.target.value as 'docx' | 'pptx')}
                   className="bg-slate-900 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 w-full md:w-auto"
                 >
-                  <option value="docx">Word (.docx)</option>
-                  <option value="pptx">PowerPoint (.pptx)</option>
+                  <option value="docx">Word (.docx - Editable)</option>
+                  <option value="pptx">PowerPoint (.pptx - Editable)</option>
                 </select>
               </div>
             </div>
@@ -226,7 +257,7 @@ export default function PdfConverterPage() {
               disabled={loading || !pdfLibLoaded}
               className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
             >
-              {loading ? 'Rendering Exact Layout...' : !pdfLibLoaded ? 'Loading Processor...' : `Convert to ${outputType.toUpperCase()} (Exact Match)`}
+              {loading ? 'Extracting Layout & Text...' : !pdfLibLoaded ? 'Loading Processor...' : `Convert to ${outputType.toUpperCase()} (Editable Text)`}
             </button>
           )}
         </div>
