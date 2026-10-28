@@ -26,6 +26,8 @@ export default function UniversalImageConverter() {
     setError(null);
 
     try {
+      if (typeof window === 'undefined') return;
+
       const bitmap = await createImageBitmap(selectedImage);
       const canvas = document.createElement('canvas');
       canvas.width = bitmap.width;
