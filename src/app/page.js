@@ -1,248 +1,85 @@
-'use client';
-
-import { useState } from 'react';
+import Link from 'next/link';
 
 export default function Home() {
-  const [mode, setMode] = useState('json-to-csv'); // 'json-to-csv' or 'csv-to-json'
-  const [input, setInput] = useState('');
-  const [output, setOutput] = useState('');
-  const [error, setError] = useState('');
-
-  const handleConvert = () => {
-    setError('');
-    setOutput('');
-
-    if (!input.trim()) {
-      setError('Please enter some data to convert.');
-      return;
+  const tools = [
+    {
+      title: 'JSON to CSV',
+      description: 'Convert complex nested JSON data into clean, exportable CSV files instantly.',
+      href: '/json-to-csv',
+      icon: '📊',
+      accent: 'group-hover:border-amber-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(245,158,11,0.2)]'
+    },
+    {
+      title: 'Image Converter',
+      description: 'Convert PNG, JPEG, WEBP, and HEIC images safely with zero server uploads.',
+      href: '/image-converter',
+      icon: '🖼️',
+      accent: 'group-hover:border-blue-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(59,130,246,0.2)]'
+    },
+    {
+      title: 'PDF Toolkit',
+      description: 'Merge, split, and convert PDF pages to high-res images completely offline.',
+      href: '/pdf-converter',
+      icon: '📄',
+      accent: 'group-hover:border-emerald-500/50 group-hover:shadow-[0_0_30px_-5px_rgba(16,185,129,0.2)]'
     }
-
-    if (mode === 'json-to-csv') {
-      try {
-        const parsed = JSON.parse(input);
-        const array = Array.isArray(parsed) ? parsed : [parsed];
-        
-        if (array.length === 0) {
-          setError('JSON array is empty.');
-          return;
-        }
-
-        const keys = Array.from(new Set(array.flatMap(item => (item && typeof item === 'object' ? Object.keys(item) : []))));
-        if (keys.length === 0) {
-          setError('Invalid JSON structure for tabular conversion.');
-          return;
-        }
-
-        const header = keys.join(',');
-        const rows = array.map(obj => 
-          keys.map(key => {
-            let val = obj[key] !== undefined ? obj[key] : '';
-            if (typeof val === 'object') val = JSON.stringify(val);
-            // Escape quotes and commas
-            const stringVal = String(val);
-            if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
-              return `"${stringVal.replace(/"/g, '""')}"`;
-            }
-            return stringVal;
-          }).join(',')
-        );
-
-        setOutput([header, ...rows].join('\n'));
-      } catch (err) {
-        setError('Invalid JSON syntax: ' + err.message);
-      }
-    } else {
-      // CSV to JSON
-      try {
-        const lines = input.trim().split('\n');
-        if (lines.length < 2) {
-          setError('CSV must have at least a header row and one data row.');
-          return;
-        }
-
-        const parseCSVLine = (line) => {
-          const result = [];
-          let current = '';
-          let inQuotes = false;
-          for (let i = 0; i < line.length; i++) {
-            const char = line[i];
-            if (char === '"') {
-              if (inQuotes && line[i + 1] === '"') {
-                current += '"';
-                i++;
-              } else {
-                inQuotes = !inQuotes;
-              }
-            } else if (char === ',' && !inQuotes) {
-              result.push(current.trim());
-              current = '';
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = parseCSVLine(lines[0]);
-        const result = lines.slice(1).map(line => {
-          const values = parseCSVLine(line);
-          const obj = {};
-          headers.forEach((h, index) => {
-            obj[h] = values[index] !== undefined ? values[index] : '';
-          });
-          return obj;
-        });
-
-        setOutput(JSON.stringify(result, null, 2));
-      } catch (err) {
-        setError('Failed to parse CSV: ' + err.message);
-      }
-    }
-  };
-
-  const handleClear = () => {
-    setInput('');
-    setOutput('');
-    setError('');
-  };
-
-  const loadSample = () => {
-    if (mode === 'json-to-csv') {
-      setInput(JSON.stringify([
-        { name: "John Doe", age: 30, city: "New York" },
-        { name: "Jane Smith", age: 25, city: "Los Angeles" }
-      ], null, 2));
-    } else {
-      setInput("name,age,city\nJohn Doe,30,New York\nJane Smith,25,Los Angeles");
-    }
-    setOutput('');
-    setError('');
-  };
+  ];
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center py-12 px-4 sm:px-6">
-      {/* Header */}
-      <div className="text-center max-w-2xl mb-8">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2">
-          {mode === 'json-to-csv' ? 'Free Online JSON to CSV Converter' : 'Free Online CSV to JSON Converter'}
-        </h1>
-        <p className="text-slate-400 text-sm sm:text-base">
-          Instantly convert your data securely in your browser. Fast, free, and zero server uploads.
-        </p>
-
-        {/* Mode Switcher Tabs */}
-        <div className="flex justify-center mt-6 gap-2 bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-fit mx-auto">
-          <button
-            onClick={() => { setMode('json-to-csv'); handleClear(); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              mode === 'json-to-csv' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            JSON to CSV
-          </button>
-          <button
-            onClick={() => { setMode('csv-to-json'); handleClear(); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              mode === 'csv-to-json' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            CSV to JSON
-          </button>
-        </div>
-      </div>
-
-      {/* Converter Card */}
-      <div className="w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-2xl shadow-xl p-6 sm:p-8">
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center selection:bg-blue-500/30">
+      <div className="w-full max-w-6xl mx-auto px-6 py-24 flex flex-col items-center">
         
-        {/* Error Banner */}
-        {error && (
-          <div className="mb-4 p-3 bg-red-950 border border-red-800 text-red-300 rounded-xl text-sm">
-            {error}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* Input Box */}
-          <div className="flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-semibold text-slate-300">
-                {mode === 'json-to-csv' ? 'Paste JSON Input' : 'Paste CSV Input'}
-              </label>
-              <button
-                onClick={loadSample}
-                className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-              >
-                Load Sample
-              </button>
-            </div>
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder={mode === 'json-to-csv' ? '[{"name": "John", "age": 30}]' : 'name,age,city\nJohn,30,New York'}
-              className="w-full h-72 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-200 focus:outline-none focus:border-indigo-500 resize-none"
-            />
-          </div>
-
-          {/* Output Box */}
-          <div className="flex flex-col">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-semibold text-slate-300">
-                {mode === 'json-to-csv' ? 'Converted CSV Result' : 'Converted JSON Result'}
-              </label>
-              {output && (
-                <button
-                  onClick={() => navigator.clipboard.writeText(output)}
-                  className="text-xs text-indigo-400 hover:text-indigo-300 underline"
-                >
-                  Copy to Clipboard
-                </button>
-              )}
-            </div>
-            <textarea
-              readOnly
-              value={output}
-              placeholder="Your converted output will appear here..."
-              className="w-full h-72 bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-sm text-slate-400 focus:outline-none resize-none"
-            />
-          </div>
-
+        {/* Hero Section */}
+        <div className="text-center mb-20">
+          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight mb-6">
+            Privacy-First <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">Web Tools</span>
+          </h1>
+          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            A suite of high-performance utilities that run 100% locally in your browser. 
+            No limits, no subscriptions, and zero server uploads.
+          </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 mt-6">
-          <button
-            onClick={handleConvert}
-            className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-lg shadow-indigo-600/20"
-          >
-            {mode === 'json-to-csv' ? 'Convert to CSV' : 'Convert to JSON'}
-          </button>
-          <button
-            onClick={handleClear}
-            className="sm:w-32 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 px-6 rounded-xl transition-all"
-          >
-            Clear
-          </button>
+        {/* Tools Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full">
+          {tools.map((tool) => (
+            <Link 
+              key={tool.href} 
+              href={tool.href} 
+              className={`group relative bg-slate-900 border border-slate-800 rounded-3xl p-8 transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col ${tool.accent}`}
+            >
+              {/* Subtle background glow effect */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white opacity-0 group-hover:opacity-[0.03] transition-opacity duration-300 rounded-bl-full pointer-events-none -mr-8 -mt-8"></div>
+              
+              <div className="text-5xl mb-6 bg-slate-950/50 w-20 h-20 rounded-2xl border border-slate-800 flex items-center justify-center shadow-inner">
+                {tool.icon}
+              </div>
+              
+              <h2 className="text-2xl font-bold mb-3 text-slate-200 group-hover:text-white transition-colors">
+                {tool.title}
+              </h2>
+              
+              <p className="text-slate-400 text-sm leading-relaxed mb-8 flex-grow">
+                {tool.description}
+              </p>
+              
+              <div className="mt-auto text-sm font-semibold tracking-wide uppercase text-slate-500 group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                Launch Tool
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </div>
+            </Link>
+          ))}
         </div>
 
-      </div>
-
-      {/* SEO Footer Content */}
-      <div className="max-w-3xl mt-16 text-slate-400 text-sm space-y-4">
-        <h2 className="text-lg font-semibold text-slate-200">Why Use This Free Data Converter?</h2>
-        <p>
-          Whether you are a developer migrating data tables, a data analyst cleaning spreadsheets, or a digital marketer formatting custom payloads, our tool handles bidirectional conversions safely in your browser.
-        </p>
-        <ul className="list-disc pl-5 space-y-1">
-          <li>100% Free with no registration or sign-ups required.</li>
-          <li>Client-side processing ensures complete privacy—your data never touches an external server.</li>
-          <li>Optimized for speed, supporting complex nested structures, escaped quotes, and commas.</li>
-        </ul>
+        {/* Footer/Trust Badge */}
+        <div className="mt-24 pt-8 border-t border-slate-800/50 w-full flex flex-col md:flex-row items-center justify-center text-slate-500 text-sm gap-2">
+          <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          Everything is processed safely on your device.
+        </div>
       </div>
     </main>
   );
