@@ -5,8 +5,9 @@ import Link from "next/link";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
-  title: "jsontocsv.fyi | Privacy-First Web Tools",
-  description: "Free, client-side tools for JSON, Images, PDFs, QR Codes, and Office Utilities.",
+  title: "jsontocsv.fyi | Free Privacy-First Browser Utilities",
+  description: "Secure, 100% client-side web tools for JSON to CSV conversion, image conversion, PDF editing, QR code generation, text diff checking, and signature creation. No server uploads.",
+  keywords: "json to csv, client side image converter, privacy pdf merge split, secure text diff checker, transparent signature generator",
 };
 
 export default function RootLayout({ children }) {
