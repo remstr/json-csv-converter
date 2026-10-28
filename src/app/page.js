@@ -46,6 +46,8 @@ export default function Home() {
             <Link 
               key={tool.href} 
               href={tool.href} 
+              target="_blank"
+              rel="noopener noreferrer"
               className={`group relative bg-slate-900 border border-slate-800 rounded-3xl p-8 transition-all duration-300 hover:-translate-y-1 overflow-hidden flex flex-col ${tool.accent}`}
             >
               {/* Subtle background glow effect */}
