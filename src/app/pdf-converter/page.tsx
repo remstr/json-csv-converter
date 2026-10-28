@@ -49,9 +49,22 @@ export default function PdfToolkitPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleAddMergeFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setMergeFiles((prev) => [...prev, ...newFiles]);
+    }
+    e.target.value = '';
+    setError(null);
+  };
+
+  const removeMergeFile = (indexToRemove: number) => {
+    setMergeFiles((prev) => prev.filter((_, i) => i !== indexToRemove));
+  };
+
   const handleMerge = async () => {
     if (mergeFiles.length < 2) {
-      setError('Please select at least 2 PDF files to merge.');
+      setError('Please add at least 2 PDF files to merge.');
       return;
     }
     setLoading(true);
@@ -66,7 +79,6 @@ export default function PdfToolkitPage() {
         copiedPages.forEach((page) => mergedPdf.addPage(page));
       }
       const pdfBytes = await mergedPdf.save();
-      // Added "as any" to bypass strict Blob typing
       triggerDownload(new Blob([pdfBytes as any], { type: 'application/pdf' }), 'merged-document.pdf');
       setStatusMessage('Merge complete!');
     } catch (err) {
@@ -77,7 +89,7 @@ export default function PdfToolkitPage() {
 
   const handleSplit = async () => {
     if (!splitFile || startPage > endPage || startPage < 1) {
-      setError('Please provide a valid file and page range.');
+      setError('Please provide a valid file and ensure start page is before end page.');
       return;
     }
     setLoading(true);
@@ -98,7 +110,6 @@ export default function PdfToolkitPage() {
       copiedPages.forEach((page) => newPdf.addPage(page));
       
       const pdfBytes = await newPdf.save();
-      // Added "as any" to bypass strict Blob typing
       triggerDownload(new Blob([pdfBytes as any], { type: 'application/pdf' }), `split-${startPage}-to-${endPage}.pdf`);
       setStatusMessage('Split complete!');
     } catch (err: any) {
@@ -159,7 +170,6 @@ export default function PdfToolkitPage() {
           Merge, split, or convert PDFs to images securely in your browser. 100% free with zero file uploads.
         </p>
 
-        {/* Tab Navigation */}
         <div className="flex bg-slate-900 p-1 rounded-xl mb-8 border border-slate-800">
           {[
             { id: 'merge', label: 'Merge PDFs' },
@@ -185,15 +195,44 @@ export default function PdfToolkitPage() {
           {/* MERGE TAB */}
           {activeTab === 'merge' && (
             <div className="w-full flex flex-col items-center">
-              <input type="file" multiple accept="application/pdf" className="mb-4 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-950 file:text-blue-400 hover:file:bg-blue-900" 
-                onChange={(e) => setMergeFiles(Array.from(e.target.files || []))} />
+              <div className="w-full border-2 border-dashed border-slate-700 hover:border-blue-500 transition rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer bg-slate-950/50 relative mb-6">
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="application/pdf" 
+                  onChange={handleAddMergeFiles}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                />
+                <svg className="w-12 h-12 text-slate-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                <p className="text-sm font-medium text-slate-300">Click to add a PDF, or drag and drop</p>
+                <p className="text-xs text-slate-500 mt-1">You can add files one by one</p>
+              </div>
+
               {mergeFiles.length > 0 && (
-                <ul className="w-full text-sm text-slate-400 mb-6 bg-slate-950 p-4 rounded-lg border border-slate-800">
-                  {mergeFiles.map((f, i) => <li key={i}>📄 {f.name}</li>)}
+                <ul className="w-full text-sm text-slate-400 mb-6 bg-slate-950 p-4 rounded-lg border border-slate-800 space-y-2">
+                  {mergeFiles.map((f, i) => (
+                    <li key={i} className="flex items-center justify-between bg-slate-900 px-4 py-2 rounded-md border border-slate-800">
+                      <span className="truncate pr-4">📄 {i + 1}. {f.name}</span>
+                      <button 
+                        onClick={() => removeMergeFile(i)}
+                        className="text-slate-500 hover:text-red-400 font-bold transition"
+                        title="Remove file"
+                      >
+                        ✕
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               )}
-              <button onClick={handleMerge} disabled={loading} className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50">
-                {loading ? 'Processing...' : 'Merge PDFs'}
+              
+              <button 
+                onClick={handleMerge} 
+                disabled={loading || mergeFiles.length < 2} 
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
+              >
+                {loading ? 'Processing...' : `Merge ${mergeFiles.length} PDFs`}
               </button>
             </div>
           )}
@@ -201,12 +240,55 @@ export default function PdfToolkitPage() {
           {/* SPLIT TAB */}
           {activeTab === 'split' && (
             <div className="w-full flex flex-col items-center">
-              <input type="file" accept="application/pdf" className="mb-6 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-950 file:text-emerald-400 hover:file:bg-emerald-900" 
+              <input type="file" accept="application/pdf" className="mb-8 text-sm text-slate-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-950 file:text-emerald-400 hover:file:bg-emerald-900" 
                 onChange={(e) => setSplitFile(e.target.files?.[0] || null)} />
-              <div className="flex gap-4 mb-6">
-                <div className="flex flex-col"><label className="text-xs text-slate-400 mb-1">Start Page</label><input type="number" min="1" value={startPage} onChange={(e) => setStartPage(Number(e.target.value))} className="bg-slate-950 border border-slate-700 text-white px-4 py-2 rounded-lg w-24 text-center" /></div>
-                <div className="flex flex-col"><label className="text-xs text-slate-400 mb-1">End Page</label><input type="number" min="1" value={endPage} onChange={(e) => setEndPage(Number(e.target.value))} className="bg-slate-950 border border-slate-700 text-white px-4 py-2 rounded-lg w-24 text-center" /></div>
+              
+              <div className="flex flex-col sm:flex-row gap-8 mb-8">
+                {/* Start Page Custom Control */}
+                <div className="flex flex-col items-center">
+                  <label className="text-sm font-medium text-slate-400 mb-2">Start Page</label>
+                  <div className="flex shadow-sm rounded-lg border border-slate-700">
+                    <button 
+                      onClick={() => setStartPage(Math.max(1, startPage - 1))}
+                      className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-l-lg text-xl font-bold transition flex items-center justify-center"
+                    >−</button>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={startPage} 
+                      onChange={(e) => setStartPage(Math.max(1, Number(e.target.value)))} 
+                      className="bg-slate-950 text-white px-2 py-3 w-20 text-center text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none" 
+                    />
+                    <button 
+                      onClick={() => setStartPage(startPage + 1)}
+                      className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-r-lg text-xl font-bold transition flex items-center justify-center"
+                    >+</button>
+                  </div>
+                </div>
+
+                {/* End Page Custom Control */}
+                <div className="flex flex-col items-center">
+                  <label className="text-sm font-medium text-slate-400 mb-2">End Page</label>
+                  <div className="flex shadow-sm rounded-lg border border-slate-700">
+                    <button 
+                      onClick={() => setEndPage(Math.max(1, endPage - 1))}
+                      className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-l-lg text-xl font-bold transition flex items-center justify-center"
+                    >−</button>
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={endPage} 
+                      onChange={(e) => setEndPage(Math.max(1, Number(e.target.value)))} 
+                      className="bg-slate-950 text-white px-2 py-3 w-20 text-center text-lg font-semibold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none focus:outline-none" 
+                    />
+                    <button 
+                      onClick={() => setEndPage(endPage + 1)}
+                      className="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-r-lg text-xl font-bold transition flex items-center justify-center"
+                    >+</button>
+                  </div>
+                </div>
               </div>
+
               <button onClick={handleSplit} disabled={loading} className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 font-semibold text-white hover:from-emerald-500 hover:to-teal-500 transition disabled:opacity-50">
                 {loading ? 'Processing...' : 'Split & Download'}
               </button>
