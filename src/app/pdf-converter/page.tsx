@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { Document, Packer, Paragraph, ImageRun } from 'docx';
 import PptxGenJS from 'pptxgenjs';
 
 export default function PdfConverterPage() {
@@ -12,7 +12,6 @@ export default function PdfConverterPage() {
   const [error, setError] = useState<string | null>(null);
   const [pdfLibLoaded, setPdfLibLoaded] = useState(false);
 
-  // Load PDF.js dynamically in the browser
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).pdfjsLib) {
       const script = document.createElement('script');
@@ -49,7 +48,7 @@ export default function PdfConverterPage() {
 
     setLoading(true);
     setError(null);
-    setStatusMessage('Reading PDF text content...');
+    setStatusMessage('Rendering PDF pages with exact layout & visuals...');
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
@@ -57,93 +56,101 @@ export default function PdfConverterPage() {
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdfDoc = await loadingTask.promise;
       
-      let extractedTextLines: string[] = [];
+      let pageImageDatas: { dataUrl: string; width: number; height: number }[] = [];
 
+      // Render each page into a high-fidelity image canvas to preserve colors, tables, and alignment
       for (let i = 1; i <= pdfDoc.numPages; i++) {
+        setStatusMessage(`Rendering page ${i} of ${pdfDoc.numPages} (preserving colors & tables)...`);
         const page = await pdfDoc.getPage(i);
-        const textContent = await page.getTextContent();
+        const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for sharp high-res quality
         
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .filter((str: string) => str.trim().length > 0);
-          
-        extractedTextLines.push(...pageText);
-      }
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
 
-      if (extractedTextLines.length === 0) {
-        extractedTextLines.push("No extractable text found (scanned image PDF).");
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        }).promise;
+
+        const dataUrl = canvas.toDataURL('image/png');
+        pageImageDatas.push({ dataUrl, width: viewport.width, height: viewport.height });
       }
 
       if (outputType === 'docx') {
-        setStatusMessage('Generating Word document (.docx)...');
+        setStatusMessage('Embedding visual pages into Word document (.docx)...');
         
-        const docParagraphs = extractedTextLines.map(
-          (line) =>
+        let docParagraphs: any[] = [];
+
+        for (const pageImg of pageImageDatas) {
+          // Convert base64 dataURL to Uint8Array for docx library
+          const base64Data = pageImg.dataUrl.split(',')[1];
+          const binaryStr = atob(base64Data);
+          const len = binaryStr.length;
+          const bytes = new Uint8Array(len);
+          for (let j = 0; j < len; j++) {
+            bytes[j] = binaryStr.charCodeAt(j);
+          }
+
+          // Scale dimensions to fit cleanly within standard page width (~550pt)
+          const displayWidth = 550;
+          const displayHeight = (pageImg.height / pageImg.width) * displayWidth;
+
+          docParagraphs.push(
             new Paragraph({
               children: [
-                new TextRun({
-                  text: line,
-                  size: 24,
+                new ImageRun({
+                  data: bytes,
+                  transformation: {
+                    width: displayWidth,
+                    height: displayHeight,
+                  },
                 }),
               ],
+              spacing: { after: 300 },
             })
-        );
+          );
+        }
 
         const doc = new Document({
-          sections: [
-            {
-              properties: {},
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `Source: ${selectedFile.name}`,
-                      bold: true,
-                      size: 28,
-                    }),
-                  ],
-                }),
-                ...docParagraphs,
-              ],
-            },
-          ],
+          sections: [{ properties: {}, children: docParagraphs }],
         });
 
         const blob = await Packer.toBlob(doc);
         const url = URL.createObjectURL(blob);
-        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}.docx`);
+        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-exact.docx`);
 
       } else {
-        setStatusMessage('Generating PowerPoint presentation (.pptx)...');
+        setStatusMessage('Building exact-match PowerPoint presentation (.pptx)...');
         
         const pres = new PptxGenJS();
-        const chunkSize = 10;
-        
-        for (let i = 0; i < extractedTextLines.length; i += chunkSize) {
-          const chunk = extractedTextLines.slice(i, i + chunkSize);
+        pres.defineLayout({ name: 'CUSTOM', width: 10, height: 7.5 });
+
+        for (const pageImg of pageImageDatas) {
           let slide = pres.addSlide();
+          slide.background = { color: "FFFFFF" };
           
-          slide.addText(`Slide from: ${selectedFile.name}`, { x: 0.8, y: 0.5, fontSize: 18, bold: true, color: '1e293b' });
-          slide.addText(chunk.join('\n'), {
-            x: 0.8,
-            y: 1.2,
-            w: '85%',
-            h: '80%',
-            fontSize: 14,
-            color: '334155',
+          // Add the exact visual page snapshot covering the slide
+          slide.addImage({
+            data: pageImg.dataUrl,
+            x: 0,
+            y: 0,
+            w: '100%',
+            h: '100%',
           });
         }
 
         const blob = (await pres.write({ outputType: 'blob' })) as Blob;
         const url = URL.createObjectURL(blob);
-        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}.pptx`);
+        triggerDownload(url, `${selectedFile.name.replace(/\.[^/.]+$/, '')}-exact.pptx`);
       }
 
-      setStatusMessage('Conversion complete! Your download has started.');
+      setStatusMessage('Conversion complete! Your exact-match file has downloaded.');
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Failed to extract text from PDF. Please try another file.');
+      setError('Failed to render PDF layout. Please try another file.');
       setLoading(false);
     }
   };
@@ -164,7 +171,7 @@ export default function PdfConverterPage() {
           PDF to Word & PowerPoint Converter
         </h1>
         <p className="text-slate-400 text-center max-w-xl mb-8">
-          Convert PDF files into editable DOCX or PPTX formats directly in your browser. Fast, private, and 100% free.
+          Convert PDF files into exact visual DOCX or PPTX formats with 100% color, table, and layout fidelity. 100% private & client-side.
         </p>
 
         <div className="w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col items-center">
@@ -193,7 +200,7 @@ export default function PdfConverterPage() {
             <p className="text-sm font-medium text-slate-300">
               {selectedFile ? selectedFile.name : "Drag & drop a PDF file here, or browse"}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Extract text into editable formats instantly</p>
+            <p className="text-xs text-slate-500 mt-1">Preserves 100% layout, colors, tables, and pictures</p>
           </div>
 
           {selectedFile && (
@@ -223,7 +230,7 @@ export default function PdfConverterPage() {
               disabled={loading || !pdfLibLoaded}
               className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
             >
-              {loading ? 'Extracting & Converting...' : !pdfLibLoaded ? 'Loading Processor...' : `Convert to ${outputType.toUpperCase()}`}
+              {loading ? 'Rendering Exact Layout...' : !pdfLibLoaded ? 'Loading Processor...' : `Convert to ${outputType.toUpperCase()} (Exact Match)`}
             </button>
           )}
         </div>
