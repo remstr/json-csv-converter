@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import PptxGenJS from 'pptxgenjs';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure worker for PDF.js
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export default function PdfConverterPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -26,19 +30,46 @@ export default function PdfConverterPage() {
     if (!selectedFile) return;
     setLoading(true);
     setError(null);
-    setStatusMessage('Reading PDF structure...');
+    setStatusMessage('Reading PDF text content...');
 
     try {
-      // Read PDF as ArrayBuffer
       const arrayBuffer = await selectedFile.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdfDoc = await loadingTask.promise;
       
-      // For demonstration and client stability, we extract text content or simulate structured conversion
-      // In a full client-side parser, we read text blocks. Let's create the downloadable file based on selection:
-      
+      let extractedTextLines: string[] = [];
+
+      // Loop through all pages and extract text strings
+      for (let i = 1; i <= pdfDoc.numPages; i++) {
+        const page = await pdfDoc.getPage(i);
+        const textContent = await page.getTextContent();
+        
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .filter((str) => str.trim().length > 0);
+          
+        extractedTextLines.push(...pageText);
+      }
+
+      if (extractedTextLines.length === 0) {
+        extractedTextLines.push("No extractable text found (scanned image PDF).");
+      }
+
       if (outputType === 'docx') {
         setStatusMessage('Generating Word document (.docx)...');
         
-        // Create a basic Word document using docx library
+        const docParagraphs = extractedTextLines.map(
+          (line) =>
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: line,
+                  size: 24,
+                }),
+              ],
+            })
+        );
+
         const doc = new Document({
           sections: [
             {
@@ -47,20 +78,13 @@ export default function PdfConverterPage() {
                 new Paragraph({
                   children: [
                     new TextRun({
-                      text: `Converted from: ${selectedFile.name}`,
+                      text: `Source: ${selectedFile.name}`,
                       bold: true,
                       size: 28,
                     }),
                   ],
                 }),
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: "This document was successfully generated client-side via jsontocsv.fyi.",
-                      size: 24,
-                    }),
-                  ],
-                }),
+                ...docParagraphs,
               ],
             },
           ],
@@ -74,9 +98,24 @@ export default function PdfConverterPage() {
         setStatusMessage('Generating PowerPoint presentation (.pptx)...');
         
         const pres = new PptxGenJS();
-        let slide = pres.addSlide();
-        slide.addText(`Presentation: ${selectedFile.name}`, { x: 1, y: 1, fontSize: 24, bold: true, color: '363636' });
-        slide.addText('Converted securely in your browser with zero server uploads.', { x: 1, y: 2, fontSize: 14, color: '666666' });
+        
+        // Create chunks of text per slide
+        const chunkSize = 10;
+        for (let i = 0; i < extractedTextLines.length; i += chunkSize) {
+          const chunk = extractedTextLines.slice(i, i + chunkSize);
+          let slide = pres.addSlide();
+          
+          slide.addText(`Slide from: ${selectedFile.name}`, { x: 0.8, y: 0.5, fontSize: 18, bold: true, color: '1e293b' });
+          
+          slide.addText(chunk.join('\n'), {
+            x: 0.8,
+            y: 1.2,
+            w: '85%',
+            h: '80%',
+            fontSize: 14,
+            color: '334155',
+          });
+        }
 
         const blob = (await pres.write({ outputType: 'blob' })) as Blob;
         const url = URL.createObjectURL(blob);
@@ -87,7 +126,7 @@ export default function PdfConverterPage() {
       setLoading(false);
     } catch (err) {
       console.error(err);
-      setError('Failed to convert document. Please try a different PDF file.');
+      setError('Failed to extract text from PDF. Please try another file.');
       setLoading(false);
     }
   };
@@ -137,7 +176,7 @@ export default function PdfConverterPage() {
             <p className="text-sm font-medium text-slate-300">
               {selectedFile ? selectedFile.name : "Drag & drop a PDF file here, or browse"}
             </p>
-            <p className="text-xs text-slate-500 mt-1">Extract and convert into editable formats instantly</p>
+            <p className="text-xs text-slate-500 mt-1">Extract text into editable formats instantly</p>
           </div>
 
           {selectedFile && (
@@ -167,7 +206,7 @@ export default function PdfConverterPage() {
               disabled={loading}
               className="mt-6 w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 font-semibold text-white shadow-lg hover:from-blue-500 hover:to-indigo-500 transition disabled:opacity-50"
             >
-              {loading ? 'Converting Document...' : `Convert to ${outputType.toUpperCase()}`}
+              {loading ? 'Extracting & Converting...' : `Convert to ${outputType.toUpperCase()}`}
             </button>
           )}
         </div>
