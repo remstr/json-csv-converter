@@ -6,7 +6,7 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata = {
   title: "jsontocsv.fyi | Privacy-First Web Tools",
-  description: "Free, client-side tools for JSON, Images, PDFs, and QR Codes.",
+  description: "Free, client-side tools for JSON, Images, PDFs, QR Codes, and Office Utilities.",
 };
 
 export default function RootLayout({ children }) {
@@ -22,12 +22,14 @@ export default function RootLayout({ children }) {
             </Link>
             
             {/* Quick Links */}
-            <div className="hidden lg:flex gap-6 text-sm font-medium text-slate-400">
+            <div className="hidden lg:flex gap-5 text-sm font-medium text-slate-400">
               <Link href="/" className="hover:text-white transition">Home</Link>
               <Link href="/json-to-csv" className="hover:text-amber-400 transition">JSON to CSV</Link>
-              <Link href="/image-converter" className="hover:text-blue-400 transition">Image Converter</Link>
+              <Link href="/image-converter" className="hover:text-blue-400 transition">Images</Link>
               <Link href="/pdf-converter" className="hover:text-emerald-400 transition">PDF Toolkit</Link>
-              <Link href="/qr-generator" className="hover:text-violet-400 transition">QR Generator</Link>
+              <Link href="/qr-generator" className="hover:text-violet-400 transition">QR Code</Link>
+              <Link href="/diff-checker" className="hover:text-rose-400 transition">Text Diff</Link>
+              <Link href="/signature-generator" className="hover:text-teal-400 transition">Signature</Link>
             </div>
           </div>
         </nav>
