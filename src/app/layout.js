@@ -1,6 +1,7 @@
 import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
+import Script from "next/script";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -14,6 +15,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body className={`${inter.className} bg-slate-950 text-slate-100 min-h-screen flex flex-col`}>
+        {/* Umami Analytics Tracking Script */}
+        <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="fda5df69-120f-4ac1-811e-1392ddb660fc"
+        />
+
         {/* Global Navigation Bar */}
         <nav className="w-full border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
