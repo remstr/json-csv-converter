@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import AdsterraBanner from '@/components/AdsterraBanner';
+import AdsterraBanner from './components/AdsterraBanner';
 
 export default function Home() {
   const tools = [
