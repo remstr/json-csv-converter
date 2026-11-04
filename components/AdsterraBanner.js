@@ -1,43 +1,38 @@
 'use client';
 
-export default function AdsterraBanner() {
-  const adKey = '37e0ca71e4f53a5fb5dc361601e179a9';
-  const width = 728;
-  const height = 90;
+import { useEffect, useRef } from 'react';
 
-  const iframeContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <style>
-          body { margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; background: transparent; }
-        </style>
-      </head>
-      <body>
-        <script type="text/javascript">
-          atOptions = {
-            'key' : '${adKey}',
-            'format' : 'iframe',
-            'height' : ${height},
-            'width' : ${width},
-            'params' : {}
-          };
-        </script>
-        <script type="text/javascript" src="https://bauval.org/22/${adKey}"></script>
-      </body>
-    </html>
-  `;
+export default function AdsterraBanner() {
+  const bannerRef = useRef(null);
+
+  useEffect(() => {
+    if (bannerRef.current && bannerRef.current.children.length === 0) {
+      const adKey = '37e0ca71e4f53a5fb5dc361601e179a9';
+
+      const scriptConfig = document.createElement('script');
+      scriptConfig.type = 'text/javascript';
+      scriptConfig.text = `
+        atOptions = {
+          'key': '${adKey}',
+          'format': 'iframe',
+          'height': 90,
+          'width': 728,
+          'params': {}
+        };
+      `;
+
+      const scriptInvoke = document.createElement('script');
+      scriptInvoke.type = 'text/javascript';
+      scriptInvoke.src = `https://bauval.org/22/${adKey}`;
+
+      bannerRef.current.appendChild(scriptConfig);
+      bannerRef.current.appendChild(scriptInvoke);
+    }
+  }, []);
 
   return (
-    <div className="flex justify-center my-6 overflow-hidden">
-      <iframe
-        title="Advertisement"
-        srcDoc={iframeContent}
-        width={width}
-        height={height}
-        className="border-0 overflow-hidden"
-        scrolling="no"
-      />
+    <div className="flex justify-center my-6 overflow-hidden min-h-[90px] w-full">
+      <div ref={bannerRef} />
     </div>
   );
 }
