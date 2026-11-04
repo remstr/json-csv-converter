@@ -2,6 +2,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Link from "next/link";
 import Script from "next/script";
+import AdsterraSocialBar from "./components/AdsterraSocialBar";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -47,6 +48,9 @@ export default function RootLayout({ children }) {
         <div className="flex-grow">
           {children}
         </div>
+
+        {/* Floating Adsterra Social Bar Ads */}
+        <AdsterraSocialBar />
       </body>
     </html>
   );
